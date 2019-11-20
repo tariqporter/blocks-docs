@@ -1,12 +1,23 @@
 import React, { useState, useCallback } from 'react';
 import DraftEditor from './DraftEditor';
-// import { EditorState, ContentState } from 'draft-js';
-import { EditorState, ContentState, convertToRaw, convertFromRaw } from 'draft-js';
-// import { draftToMarkdown } from 'markdown-draft-js';
-// import { mdToDraftjs, draftjsToMd } from 'draftjs-md-converter';
+import { EditorState, ContentState } from 'draft-js';
 import { Grid } from '@material-ui/core';
 import { createUseStyles } from 'react-jss';
 import clsx from 'clsx';
+import { Paper, Tabs, Tab } from '@material-ui/core';
+import showdown from 'showdown';
+import sanitizeHtml from 'sanitize-html';
+import 'github-markdown-css/github-markdown.css';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github.css';
+
+const allowedTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'p', 'a', 'ul', 'ol',
+  'nl', 'li', 'b', 'i', 'strong', 'em', 'strike', 'code', 'hr', 'br', 'div',
+  'table', 'thead', 'caption', 'tbody', 'tr', 'th', 'td', 'pre'];
+
+const allowedAttributes = {
+    '*': [ 'href', 'name', 'target', 'class' ]
+};
 
 const useStyles = createUseStyles(theme => ({
   root: {
@@ -14,64 +25,82 @@ const useStyles = createUseStyles(theme => ({
     padding: 100
   },
   panel: {
-    display: 'flex'
+    display: 'flex',
+    borderRadius: [4, 0, 0, 4]
   },
-  panel_left: {
-    borderRadius: [4, 0, 0, 4],
-    background: '#DCDBDC'
-  },
-  panel_right: {
-    borderRadius: [0, 4, 4, 0],
-    background: '#373737'
+  preview: {
+    padding: 36
   }
 }));
 
-// const noop = () => () => { };
+const defaultText = `
+# header
+
+\`some code\` and a list:
+- apples
+- oranges
+- pears
+
+\`\`\`js
+const a = 33;
+\`\`\`
+
+\`\`\`html
+<div class="test-class"></div>
+\`\`\`
+`;
 
 const App = () => {
   const c = useStyles();
-  const [richEditorState, setRichEditorState] = useState(EditorState.createWithContent(ContentState.createFromText('')));
-  // const [markdownEditorState, setMarkdownEditorState] = useState(EditorState.createWithContent(ContentState.createFromText('')));
-  // const [onRichEditorChangeFn, setOnRichEditorChangeFn] = useState(noop);
-  // const [onMarkdownEditorChangeFn, setOnMarkdownEditorChangeFn] = useState(noop);
+  const [editorState, setEditorState] = useState(EditorState.createWithContent(ContentState.createFromText(defaultText)));
+  const [tabIndex, setTabIndex] = useState(0);
+  const [html, setHtml] = useState('');
 
   const onChange = useCallback((e) => {
-    // console.log(1);
-    setRichEditorState(e);
-    // const raw = convertToRaw(e.getCurrentContent());
-    // console.log(raw);
-    // const md = draftjsToMd(raw);
-    // const newMarkdownEditorState = EditorState.createWithContent(ContentState.createFromText(md));
-    // setMarkdownEditorState(newMarkdownEditorState);
-    // setOnRichEditorChangeFn(noop);
-    // setOnMarkdownEditorChangeFn(onMarkdownEditorChange);
-  }, [setRichEditorState]);
+    setEditorState(e);
+  }, [setEditorState]);
 
-  // const onMarkdownEditorChange = useCallback((e) => {
-  //   // console.log(2);
-  //   setMarkdownEditorState(e);
-  //   const md = e.getCurrentContent().getPlainText();
-  //   const rawData = mdToDraftjs(md);
-  //   const contentState = convertFromRaw(rawData);
-  //   const newRichEditorState = EditorState.createWithContent(contentState);
-  //   setRichEditorState(newRichEditorState);
-  //   setOnMarkdownEditorChangeFn(noop);
-  //   setOnRichEditorChangeFn(onRichEditorChange);
-  // }, []);
-
-  // useEffect(() => {
-  //   setOnRichEditorChangeFn(onRichEditorChange);
-  // }, []);
+  const handleChange = (e, index) => {
+    setTabIndex(index);
+    if (index === 1) {
+      const converter = new showdown.Converter();
+      const text = editorState.getCurrentContent().getPlainText();
+      const newHtml = converter.makeHtml(text);
+      const sanitizedHtml = sanitizeHtml(newHtml, { allowedTags, allowedAttributes });
+      const div = document.createElement('div');
+      div.innerHTML = sanitizedHtml;
+      div.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightBlock(block);
+      });
+      const innerHTML = div.innerHTML;
+      setHtml(innerHTML);
+    }
+  };
 
   return (
     <Grid container className={c.root}>
-      <Grid item xs={6} className={clsx(c.panel, c.panel_left)}>
-        <DraftEditor
-          draftId="rich"
-          editorState={richEditorState}
-          onChange={onChange}
-          showToolbar
-        />
+      <Grid item xs={6} className={c.panel}>
+        <Paper style={{ width: '100%' }}>
+          <Tabs
+            value={tabIndex}
+            indicatorColor="primary"
+            textColor="primary"
+            variant="fullWidth"
+            onChange={handleChange}
+          >
+            <Tab label="Edit Markdown" />
+            <Tab label="Preview" />
+          </Tabs>
+          <div hidden={tabIndex !== 0}>
+            <DraftEditor
+              editorState={editorState}
+              onChange={onChange}
+            />
+          </div>
+          <div className={clsx(c.preview, 'markdown-body')} hidden={tabIndex !== 1}>
+            <div dangerouslySetInnerHTML={{ __html: html }} />
+          </div>
+        </Paper>
       </Grid>
     </Grid>
   );
