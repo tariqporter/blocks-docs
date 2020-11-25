@@ -17,7 +17,7 @@
     "draft-js-toolbar-plugin": "^1.0.5",
     "draftjs-md-converter": "^1.2.0",
     "github-markdown-css": "^3.0.1",
-    "highlight.js": "^9.16.2",
+    "highlight.js": "^10.1.2",
     "html-to-draftjs": "^1.4.0",
     "markdown-draft-js": "^2.1.1",
     "node-sass": "^4.13.0",
